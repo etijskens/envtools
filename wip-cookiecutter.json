@@ -1,0 +1,9 @@
+{
+  "full_name": "Engelbert Tijskens",
+  "email_address": "engelbert.tijskens@uantwerpen.be",
+  "github_username": "etijskens",
+  "project_name": "envtools",
+  "package_name": "envtools",
+  "project_short_description": "Tools for finding out the environment where a python script is running.",
+  "minimal_python_version": "3.9"
+}
