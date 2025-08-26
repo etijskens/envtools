@@ -8,14 +8,12 @@ sys.path.insert(0,'.')
 import envtools
 
 
-def test_hello_default_arg():
-    result = envtools.hello()
-    assert result == "Hello world!"
+def test_platform():
+    assert envtools.platform in ('darwin', 'linux')
 
 
-def test_hello_me():
-    result = envtools.hello('me')
-    assert result == "Hello me!"
+def test_cluster():
+    """"""
 
 
 # ==============================================================================
@@ -25,7 +23,7 @@ def test_hello_me():
 # that the source directory is on the path
 # ==============================================================================
 if __name__ == "__main__":
-    the_test_you_want_to_debug = test_hello_default_arg
+    the_test_you_want_to_debug = test_platform
 
     print("__main__ running", the_test_you_want_to_debug)
     the_test_you_want_to_debug()
