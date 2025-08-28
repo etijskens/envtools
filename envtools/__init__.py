@@ -8,28 +8,46 @@ __version__ = '0.0.0'
 import os
 from pathlib import Path
 import re
+from socket import gethostname
 import subprocess
 from sys import platform # 'linux'|'darwin'|...
 from tabulate import tabulate
 
 
 if not platform in ('linux','darwin'):
-    raise NotImplementedError(f"envtools was designed for linux and macos only. Not for {platform}.")
+    raise NotImplementedError(f"envtools was designed for linux and macos only. Not for {platform=}.")
 
 
-def get_cluster():
-    """Return the lowercase name of the cluster """
+def get_cluster(unknown_allowed=False) -> str:
+    """
+    Find out the name of the cluster.
+
+    Returns:
+        The name of the cluster. If the cluster is unknown to envtools and unknown_allowed==True, 
+        the hostname of the machine is returned, prepended with a '?'.
+    
+    Raises: 
+        NotImplementedError if unknown_allowed==False and the cluster is unknown to envtools.
+    """
     try:
-        cluster = os.environ['VSC_INSTITUTE_CLUSTER']
+        return os.environ['VSC_INSTITUTE_CLUSTER']
     except:
+        # not a VSC cluster
         if Path('/appl/lumi').exists():
-            cluster = 'lumi'
+            return 'lumi'
         # tests for other machines
         else:
-            raise NotImplementedError('get_cluster(): Unable to find out which cluster we are running on.')
-                                      
-    return cluster
-
+            # cluster unknown to envtools: return the hostname prepended with a question mark
+            if unknown_allowed: 
+                return '?'+gethostname()
+            else:
+                raise NotImplementedError(f"Cluster unknown to envtools (hostname={gethostname()}).")                                      
+    
+def has_gpu() -> bool:
+    if is_slurm_job():
+        return bool(os.environ.get('SLURM_GPUS_ON_NODE',0))
+    else:
+        raise NotImplementedError("Don't know how to determine the presence of a GPU (except in a SLURM job).")
 
 
 def get_cpus_per_node() -> int:
@@ -41,20 +59,25 @@ def get_cpus_per_node() -> int:
         m = pattern.match(output.stdout.decode('utf-8'))
         return int(m[1])
     elif platform == 'linux':
-        if is_slurm_job():
-            return int(os.environ['SLURM_CPUS_ON_NODE'])
+        output = subprocess.run(['lscpu'], capture_output=True)
+        pattern = re.compile(r'CPU\(s\):\s+(\d+)')
+        for line in output.stdout.decode('utf-8').splitlines():
+            m = pattern.match(line)
+            if m:
+                return int(m.group(1))
         else:
-            output = subprocess.run(['lscpu'], capture_output=True)
-            pattern = re.compile(r'CPU(s):\s+(\d+)\n')
-            for line in output.stdout.decode('utf-8').splitlines():
-                m = pattern.match(line)
-                if m:
-                    return int(m.group(1))
+            raise RuntimeError('Unable to read #cpus/node from lscpu output.')
     else:
         raise NotImplementedError(f"envtools was designed for {platform}.")
 
 
 # SLURM info
+# This is all about accessing environment variables... 
+# There are only two reasons to define a convenience function for them:
+# - we can come up with a better name that makes the meaning of an environment
+#   variable easier to remember
+# - the intrinsic type of the environment variable is not a str
+
 def is_slurm_job() -> bool:
     """Return True if the environment is a slurm job"""
     try:
@@ -63,30 +86,38 @@ def is_slurm_job() -> bool:
     except KeyError:
         return False
 
-def get_partition():
-    """Get the partition on which we are running. The empty string identifies a login node."""
-    return os.environ.get('SLURM_JOB_PARTITION', default='')
-
-def get_job_cpus() -> int:
-    """Return the number of cpus available to the job."""
-    return os.environ.get('SLURM_JOB_CPUS_PER_NODE')
-
-
+    
 def info():
     """Return a string with all available info from envtools."""
-    table = [['platform',platform]
-            ,['cluster',get_cluster()]
+    table = [['platform',platform]]
+    try:
+        table.append(['cluster',get_cluster()])
+        known_cluster = True
+    except NotImplementedError:
+        table.append(['hostname',gethostname()+" (unknown cluster or stand-alone machine)"])
+
+    if known_cluster and not is_slurm_job():
+        table.append(['node', f'login node ({gethostname()})'])
+
+    table.append(['#cpus/node  ', get_cpus_per_node()])
+    s = tabulate(table)
+
+    if is_slurm_job():
+        s += "\nJob info:\n"
+        table = [
+             ['job id'        , os.environ['SLURM_JOB_ID']]
+            ,['job name'      , os.environ['SLURM_JOB_NAME']]
+            ,['partition'     , os.environ['SLURM_JOB_PARTITION']]
+            ,['#nodes'        , os.environ['SLURM_JOB_NUM_NODES']]
+            ,['#tasks'        , os.environ['SLURM_NTASKS']]
+            ,['#cpus per task', os.environ['SLURM_CPUS_PER_TASK']]
+            ,['#cpus in job'  , os.environ['SLURM_JOB_CPUS_PER_NODE']]
+            ,['#cpus in job'  , os.environ['SLURM_CPUS_ON_NODE']]
+            ,['#gpus in job'  , os.environ.get('SLURM_GPUS_ON_NODE',0)]
             ]
-
-    partition = get_partition()
-    if not partition:
-        table.append(['node', 'login node or stand-alone'])
-    else:
-        table.append(['partition', partition])
-
-    table.append(['#cpus', get_cpus_per_node()])
-
-    return tabulate(table)
+        s += tabulate(table)
+    
+    return s
 
 
 
