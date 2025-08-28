@@ -95,6 +95,7 @@ def info():
         known_cluster = True
     except NotImplementedError:
         table.append(['hostname',gethostname()+" (unknown cluster or stand-alone machine)"])
+        known_cluster = False
 
     if known_cluster and not is_slurm_job():
         table.append(['node', f'login node ({gethostname()})'])
