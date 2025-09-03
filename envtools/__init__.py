@@ -51,7 +51,7 @@ def has_gpu() -> bool:
 
 
 def get_cpus_per_node() -> int:
-    """Return the number of cpus available on a node"""
+    """Return the number of cpus available on the node we are running on."""
 
     if platform == 'darwin':
         output = subprocess.run(['sysctl', 'hw.ncpu'], capture_output=True)
@@ -69,6 +69,22 @@ def get_cpus_per_node() -> int:
             raise RuntimeError('Unable to read #cpus/node from lscpu output.')
     else:
         raise NotImplementedError(f"envtools was designed for {platform}.")
+
+
+def get_cpus_per_compute_node(cluster,partition=''):
+    """This result is the same independent on where we are running"""
+    map_cpus_per_compute_node = {
+        ('lumi',)        : 128,
+        ('vaughan',)     :  64,
+        ('breniac',)     :  28,
+    }
+    for tuple in [(cluster,partition), (cluster,)]:
+        try:
+            return map_cpus_per_compute_node[tuple]
+        except KeyError:
+            pass
+    else:
+        raise NotImplementedError(f"Unknown {cluster=}, {partition=}.")
 
 
 # SLURM info
@@ -123,4 +139,5 @@ def info():
 
 
 if __name__ == "__main__":
-    print(info())
+    print(get_cpus_per_compute_node('lumi','standard'))
+    print(get_cpus_per_compute_node('lumi'))
