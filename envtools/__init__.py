@@ -18,7 +18,7 @@ if not platform in ('linux','darwin'):
     raise NotImplementedError(f"envtools was designed for linux and macos only. Not for {platform=}.")
 
 
-def get_cluster(unknown_allowed=False) -> str:
+def get_cluster(unknown_allowed:bool = False) -> str:
     """
     Find out the name of the cluster.
 
@@ -71,20 +71,26 @@ def get_cpus_per_node() -> int:
         raise NotImplementedError(f"envtools was designed for {platform}.")
 
 
-def get_cpus_per_compute_node(cluster,partition=''):
-    """This result is the same independent on where we are running"""
+def get_cpus_per_compute_node( cluster: str|None = None, partition: str|None ) -> int:
+    """This result is the same regardless of whether we are running on a compute node or a login node."""
     map_cpus_per_compute_node = {
-        ('lumi',)        : 128,
-        ('vaughan',)     :  64,
-        ('breniac',)     :  28,
+        ('lumi'.  , None)     : 128,
+        ('vaughan', None)     :  64,
+        ('breniac', None)     :  28,
     }
-    for tuple in [(cluster,partition), (cluster,)]:
-        try:
-            return map_cpus_per_compute_node[tuple]
-        except KeyError:
-            pass
-    else:
-        raise NotImplementedError(f"Unknown {cluster=}, {partition=}.")
+    if cluster is None:
+        cluster = get_cluster()
+
+    try:
+        return map_cpus_per_compute_node[(cluster, partition)]
+    except KeyError:        
+        if not partition is None:
+            try:
+                return map_cpus_per_compute_node[(cluster, None)]
+            except KeyError:
+                pass
+                
+    raise NotImplementedError(f"Unknown {cluster=}, {partition=}.")
 
 
 # SLURM info
