@@ -71,10 +71,10 @@ def get_cpus_per_node() -> int:
         raise NotImplementedError(f"envtools was designed for {platform}.")
 
 
-def get_cpus_per_compute_node( cluster: str|None = None, partition: str|None ) -> int:
+def get_cpus_per_compute_node( cluster: str|None = None, partition: str|None = None) -> int:
     """This result is the same regardless of whether we are running on a compute node or a login node."""
     map_cpus_per_compute_node = {
-        ('lumi'.  , None)     : 128,
+        ('lumi'   , None)     : 128,
         ('vaughan', None)     :  64,
         ('breniac', None)     :  28,
     }
